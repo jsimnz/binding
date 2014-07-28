@@ -126,20 +126,24 @@ func MultipartForm(formStruct interface{}, ifacePtr ...interface{}) martini.Hand
 func Json(jsonStruct interface{}, ifacePtr ...interface{}) martini.Handler {
 	return func(context martini.Context, req *http.Request) {
 		var errors Errors
+		var jsonStructVal reflect.Value
+		//ensureNotPointer(jsonStruct)
 
-		ensureNotPointer(jsonStruct)
-
-		jsonStruct := reflect.New(reflect.TypeOf(jsonStruct))
+		if reflect.ValueOf(jsonStruct).Kind() == reflect.Ptr {
+			jsonStructVal = reflect.New(reflect.TypeOf(reflect.Indirect(reflect.ValueOf(jsonStruct)).Interface()))
+		} else {
+			jsonStructVal = reflect.New(reflect.TypeOf(jsonStruct))
+		}
 
 		if req.Body != nil {
 			defer req.Body.Close()
-			err := json.NewDecoder(req.Body).Decode(jsonStruct.Interface())
+			err := json.NewDecoder(req.Body).Decode(jsonStructVal.Interface())
 			if err != nil && err != io.EOF {
 				errors.Add([]string{}, DeserializationError, err.Error())
 			}
 		}
 
-		validateAndMap(jsonStruct, context, errors, ifacePtr...)
+		validateAndMap(jsonStructVal, context, errors, ifacePtr...)
 	}
 }
 
